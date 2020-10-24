@@ -1,0 +1,118 @@
+---
+title: "Homework 7"
+author: "Shynggys Magzanov"
+date: "23 10 2020"
+output: html_document
+---
+
+
+## Exercise 5.3.1. \
+### Step 1. Given two pdfs f and g, we need to find the normalizing constant for g. Additionally, we need to show that g is actually a mixture of gamma distributions.
+
+It can be clearly seen that we can seperate the formula $g(x)\propto(2x^{\theta-1}+x^{\theta-1/2})e^{-x}$ into two Gamma distributions. 
+Then we can get $2C\Gamma(\theta)+C\Gamma(\theta+\frac{1}{2})=1$.
+Therefore, $C=\frac{1}{2\Gamma(\theta)+\Gamma(\theta+\frac{1}{2})}$
+$$g(x)=\frac{1}{2\Gamma(\theta)+\Gamma(\theta+\frac{1}{2})}2x^{\theta-1}e^{-x}+\frac{1}{2\Gamma(\theta)+\Gamma(\theta+\frac{1}{2})}x^{\theta-1/2}e^{-x}$$
+$$=\frac{2\Gamma(\theta)}{2\Gamma(\theta)+\Gamma(\theta+\frac{1}{2})}\cdot\frac{1}{\Gamma(\theta)}{x^{\theta-1}e^{-x}}+\frac{\Gamma(\theta+\frac{1}{2})}{2\Gamma(\theta)+\Gamma(\theta+\frac{1}{2})}\cdot\frac{1}{\Gamma(\theta+\frac{1}{2})}{2x^{\theta-1/2}e^{-x}}$$
+We can conclude that $g$ is a mixture of Gamma($\theta$,1) and Gamma($\theta+\frac{1}{2}$,1) with the weights $\frac{2\Gamma(\theta)}{2\Gamma(\theta)+\Gamma(\theta+\frac{1}{2})}$ and $\frac{\Gamma(\theta+\frac{1}{2})}{2\Gamma(\theta)+\Gamma(\theta+\frac{1}{2})}$ respectively. 
+
+### Step 2. We need to write a code to generate pseudo-random sample of size 10000 from distribution with density g. Additionally, we need to plot kernel density and real density on the same graph.
+
+In this particular implementation I used $\theta=5$ and added a histogram of generated sample.
+
+```{r}
+
+g <- function(x, theta = 5){
+  (1/(2*gamma(theta)+gamma(theta+0.5)))*(2*x^(theta-1)+x^(theta-0.5))*exp(-x)
+}
+
+sample_g <- function(theta){
+  w <- 2*gamma(theta)/(2*gamma(theta)+gamma(theta+1/2))
+  m <- 10000
+  counts <- 0
+  draws <- c()
+  u <- runif(m,0,1)
+  for(i in 1:m){
+    if(u[i]<w){
+      x <- rgamma(1,theta,1)
+      counts <- counts+1
+      draws <- c(draws,x)
+    }
+    else{
+      x <- rgamma(1,theta+0.5,1)
+    counts <- counts+1
+    draws <- c(draws,x)  
+    }
+  }
+  return(draws)
+}
+X <- sample_g(5)
+hist(X,prob=TRUE,main = "Estimated Kernel density with theta=5")
+lines(density(X))
+
+curve(g,from = 0,to=20,add=T,col="red")
+legend("topright", inset=.1, 
+         legend = c("kernel density","true density"), 
+         bty = "n", lty = 1, lwd = 2, col = c("black", "red"))
+```
+
+We can see empirically that that the generated sample indeed seems to be from density $g$.
+
+### Step 3. We need to use rejection sampling to sample from f using g as the instrumental distribution. And we need to plot estimated kernel kernel density of a randomly generated sample with real f on the same graph.
+
+
+Let us denote $f(x) = \frac{q(x)}{C_1}$, 
+and $q(x) = \sqrt{x + 4} x^{\theta-1} e^{-x}$\
+Firstly,  we need to find the value of $\alpha$
+$$\alpha = sup \frac {q(x)} {g(x)}
+         = sup \frac {\sqrt{x + 4} x^{\theta-1} e^{-x}} 
+         {C(2x^{\theta - 1} + x^{\theta-1/2}) e^{- x}}
+         = sup \frac {\sqrt{x + 4}} {C (2 + x^{1/2})}$$
+Let $y = \frac {\sqrt{x + 4}} {C (2 + x^{1/2})}$ and $y' = 0$.
+Solve it and we get $x = 4$ 
+Therefore, 
+$$\alpha = \frac {\sqrt2} {2C}$$
+For the generation of pseudo-random sample from f, we first sample $X \sim g(x)$ and $U \sim U(0, 1)$. Then compare the values of $U$ and $\frac{q(x)}{\alpha g(x)}$: If U is bigger, return to the first step; return X otherwise.\
+The returned value is a random sample from the density function $f(x)$.
+
+```{r}
+X <- sample_g(5)
+theta = 5
+C <- 1 / (2 * gamma(theta) + gamma(theta + 0.5))
+alpha <- sqrt(2) / (2 * C)
+U <- runif(10000, 0, 1)
+
+q <- function(x, theta = 5){
+  return(sqrt(4+x)*x^(theta-1)*exp(-x))
+}
+g_x <-function(x){
+  return(C*g(x))
+}
+
+
+count = 1
+accept <- c()
+
+while(count <= 10000){
+  test_u = U[count]
+  test_x = q(X[count])/(alpha*g_x(X[count]))
+  if(test_u <= test_x){
+    accept = rbind(accept, X[count])
+    count = count + 1
+  }
+  count = count + 1
+}
+
+hist(accept,prob=TRUE,main = "Estimated kernel density with theta=5")
+lines(density(accept))
+
+curve(q,from = 0,to=20,add=T,col="red")
+legend("topright", inset=.1, 
+         legend = c("kernel density","true density"), 
+         bty = "n", lty = 1, lwd = 2, col = c("black", "red"))
+
+```
+
+## Exercise 6.3.1
+
+### In this exercise we are given the mixture of Normal distributions with unknown parameters of mean and variance. 
