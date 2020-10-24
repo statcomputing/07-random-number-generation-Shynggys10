@@ -115,4 +115,95 @@ legend("topright", inset=.1,
 
 ## Exercise 6.3.1
 
-### In this exercise we are given the mixture of Normal distributions with unknown parameters of mean and variance. 
+### In this exercise we are given the mixture of Normal distributions with unknown parameters of mean and variance. But we know their priors and the fact that priors are independent. We need to design an MCMC using the Gibbs sampling approach to estimate all 5 parameters.
+
+First, let us generate some data from Normal mixture distribution. Where both means and mixing rate are unknown and to be estimated from data. Note that instead of mixing rate I estimated weights separately and denoted them as $\pi$.
+```{r}
+set.seed(33)
+
+rmix = function(n,pi,mu,s){
+  z = sample(1:length(pi),prob=pi,size=n,replace=TRUE)
+  x = rnorm(n,mu[z],s[z])
+  return(x)
+}
+x = rmix(n=1000,pi=c(0.3,0.7),mu=c(-2,2),s=c(1,1))
+hist(x)
+```
+
+Now we want to infer parameters of mean and weights. That is to say that we want to sample from $p(\mu,\pi|x)$. So the general algorithm looks like this: \ 
+1) sample $\mu$ from $\mu|x,z,\pi$; \
+2) sample $\pi|x,z,\mu$ \
+3) sample $z|x,\pi,\mu$. \
+
+```{r}
+normalize = function(x){return(x/sum(x))}
+  
+  
+  sample_z = function(x,pi,mu){
+    dmat = outer(mu,x,"-") 
+    p.z.given.x = as.vector(pi) * dnorm(dmat,0,1) 
+    p.z.given.x = apply(p.z.given.x,2,normalize) 
+    z = rep(0, length(x))
+    for(i in 1:length(z)){
+      z[i] = sample(1:length(pi), size=1,prob=p.z.given.x[,i],replace=TRUE)
+    }
+    return(z)
+  }
+ 
+  sample_pi = function(z,k){
+    counts = colSums(outer(z,1:k,FUN="=="))
+    pi = gtools::rdirichlet(1,counts+1)
+    return(pi)
+  }
+
+  sample_mu = function(x, z, k, prior){
+    df = data.frame(x=x,z=z)
+    mu = rep(0,k)
+    for(i in 1:k){
+      sample.size = sum(z==i)
+      sample.mean = ifelse(sample.size==0,0,mean(x[z==i]))
+      
+      post.prec = sample.size+prior$prec
+      post.mean = (prior$mean * prior$prec + sample.mean * sample.size)/post.prec
+      mu[i] = rnorm(1,post.mean,sqrt(1/post.prec))
+    }
+    return(mu)
+  }
+  
+  gibbs = function(x,k,niter =1000,muprior = list(mean=0,prec=100)){
+    pi = rep(1/k,k) # initialize
+    mu = rnorm(k,0,10)
+    z = sample_z(x,pi,mu)
+    res = list(mu=matrix(nrow=niter, ncol=k), pi = matrix(nrow=niter,ncol=k), z = matrix(nrow=niter, ncol=length(x)))
+    res$mu[1,]=mu
+    res$pi[1,]=pi
+    res$z[1,]=z 
+    for(i in 2:niter){
+        pi = sample_pi(z,k)
+        mu = sample_mu(x,z,k,muprior)
+        z = sample_z(x,pi,mu)
+        res$mu[i,] = mu
+        res$pi[i,] = pi
+        res$z[i,] = z
+    }
+    return(res)
+  }
+```
+
+Now let us depict obtained results as a time series.
+
+```{r}
+res = gibbs(x,2)
+plot(res$mu[,1],ylim=c(-4,4),type="l")
+lines(res$mu[,2],col=2)
+
+```
+
+We can see that MCMCs converge to it's stationary distribution, i.e distributions of $\mu$s. Let us recall that the true values were $-2$ and $2$. Now let us see the results of weights in a mixture.
+
+```{r}
+plot(res$pi[,1],ylim = c(-1,1), type="l")
+lines(res$pi[,2],col=2)
+```
+
+As it can be seen, empirical results are quite close to the real ones of $0,3$ and $0.7$  that were chosen.
