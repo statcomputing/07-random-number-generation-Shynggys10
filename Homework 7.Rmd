@@ -115,7 +115,7 @@ legend("topright", inset=.1,
 
 ## Exercise 6.3.1
 
-### In this exercise we are given the mixture of Normal distributions with unknown parameters of mean and variance. But we know their priors and the fact that priors are independent. We need to design an MCMC using the Gibbs sampling approach to estimate all 5 parameters.
+### In this exercise we are given the mixture of Normal distributions with unknown parameters of mean and their weights. But we know their priors and the fact that priors are independent. We need to design an MCMC using the Gibbs sampling approach to estimate all 5 parameters.
 
 First, let us generate some data from Normal mixture distribution. Where both means and mixing rate are unknown and to be estimated from data. Note that instead of mixing rate I estimated weights separately and denoted them as $\pi$.
 ```{r}
@@ -206,4 +206,4 @@ plot(res$pi[,1],ylim = c(-1,1), type="l")
 lines(res$pi[,2],col=2)
 ```
 
-As it can be seen, empirical results are quite close to the real ones of $0,3$ and $0.7$  that were chosen.
+As it can be seen, empirical results are quite close to the real ones of $0.3$ and $0.7$  that were chosen.
